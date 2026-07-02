@@ -30,6 +30,19 @@
 #include "Materials/Material.h"
 #include "Styling/SlateTypes.h"
 #include "Fonts/SlateFontInfo.h"
+#include "Misc/EngineVersionComparison.h"
+
+namespace
+{
+FSlateBrush MjGetImageBrush(const UImage* Image)
+{
+#if UE_VERSION_OLDER_THAN(5, 2, 0)
+	return Image->Brush;
+#else
+	return Image->GetBrush();
+#endif
+}
+} // namespace
 
 void UMjCameraFeedEntry::BindToCamera(UMjCamera* InCamera)
 {
@@ -93,7 +106,7 @@ void UMjCameraFeedEntry::RefreshBrush()
 
 	FeedImage->SetBrushResourceObject(BrushResource);
 
-	FSlateBrush Brush = FeedImage->GetBrush();
+		FSlateBrush Brush = MjGetImageBrush(FeedImage);
 	Brush.DrawAs = ESlateBrushDrawType::Image;
 	Brush.ImageType = ESlateBrushImageType::FullColor;
 	Brush.Tiling = ESlateBrushTileType::NoTile;
@@ -168,7 +181,7 @@ void UMjCameraFeedEntry::UpdateFeed()
 	if (!BoundCamera || !FeedImage || !BoundCamera->RenderTarget)
 		return;
 
-	if (!FeedImage->GetBrush().GetResourceObject())
+	if (!MjGetImageBrush(FeedImage).GetResourceObject())
 	{
 		RefreshBrush();
 	}

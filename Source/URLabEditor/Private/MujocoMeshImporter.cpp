@@ -36,6 +36,7 @@
 #include "ImageUtils.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "UObject/SavePackage.h"
+#include "Misc/EngineVersionComparison.h"
 
 UStaticMesh* UMujocoGenerationAction::ImportSingleMesh(const FString& SourcePath, const FString& DestinationPath)
 {
@@ -600,7 +601,13 @@ UMaterialInstanceConstant* UMujocoGenerationAction::CreateMaterialInstance(
 		MaterialInstance->GetStaticParameterValues(StaticParams);
 
 		auto SetSwitch = [&](const TCHAR* Name, bool Value) {
+			// UE5.1 nested the static switch array under EditorOnly;
+			// UE5.2+ exposes it directly on FStaticParameterSet.
+#if UE_VERSION_OLDER_THAN(5, 2, 0)
+			for (FStaticSwitchParameter& Param : StaticParams.EditorOnly.StaticSwitchParameters)
+#else
 			for (FStaticSwitchParameter& Param : StaticParams.StaticSwitchParameters)
+#endif
 			{
 				if (Param.ParameterInfo.Name == Name)
 				{

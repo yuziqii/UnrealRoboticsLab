@@ -29,7 +29,22 @@
 #include "Interfaces/IPluginManager.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/ScopedSlowTask.h"
+#include "Misc/EngineVersionComparison.h"
 #include "DesktopPlatformModule.h"
+
+namespace
+{
+// UE5.1 -> UE5.5 compatibility: FMessageDialog::Open took the optional title
+// as `const FText*` in UE5.1; UE5.5 switched to `const FText&`.
+static EAppReturnType::Type MjOpenDialog(EAppMsgType::Type MsgType, const FText& Message, const FText& Title)
+{
+#if UE_VERSION_OLDER_THAN(5, 5, 0)
+	return FMessageDialog::Open(MsgType, Message, &Title);
+#else
+	return FMessageDialog::Open(MsgType, Message, Title);
+#endif
+}
+} // namespace
 #include "Framework/Application/SlateApplication.h"
 
 FString FMjPythonHelper::GetLocalIniPath()
@@ -201,7 +216,7 @@ FString FMjPythonHelper::EnsurePythonReady(bool& bOutCancelled)
 								TEXT("Click 'Yes' to browse for your Python interpreter, or 'Cancel' to cancel the import."),
 			*PythonPath));
 
-		EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNoCancel, Message, Title);
+		EAppReturnType::Type Result = MjOpenDialog(EAppMsgType::YesNoCancel, Message, Title);
 		if (Result == EAppReturnType::Cancel)
 		{
 			bOutCancelled = true;
@@ -264,7 +279,7 @@ FString FMjPythonHelper::EnsurePythonReady(bool& bOutCancelled)
 				*EnvLabel);
 		}
 
-		EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::YesNoCancel,
+		EAppReturnType::Type Result = MjOpenDialog(EAppMsgType::YesNoCancel,
 			FText::FromString(MessageStr), Title);
 
 		if (Result == EAppReturnType::Cancel)
@@ -297,7 +312,7 @@ FString FMjPythonHelper::EnsurePythonReady(bool& bOutCancelled)
 					TEXT("The editor will be unresponsive during installation.\n\n")
 						TEXT("Click 'Cancel' to cancel the import."),
 				*PythonPath));
-			if (FMessageDialog::Open(EAppMsgType::OkCancel, InstallMsg, Title) == EAppReturnType::Cancel)
+			if (MjOpenDialog(EAppMsgType::OkCancel, InstallMsg, Title) == EAppReturnType::Cancel)
 			{
 				bOutCancelled = true;
 				return FString();
@@ -310,7 +325,7 @@ FString FMjPythonHelper::EnsurePythonReady(bool& bOutCancelled)
 			FString InstallLog;
 			if (!InstallPythonPackages(PythonPath, InstallLog))
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+				MjOpenDialog(EAppMsgType::Ok,
 					FText::FromString(FString::Printf(
 						TEXT("Failed to install packages. You can install them manually by running:\n\n")
 							TEXT("%s -m pip install trimesh numpy scipy Pillow\n\n")
@@ -322,7 +337,7 @@ FString FMjPythonHelper::EnsurePythonReady(bool& bOutCancelled)
 
 			if (!CheckPythonPackages(PythonPath))
 			{
-				FMessageDialog::Open(EAppMsgType::Ok,
+					MjOpenDialog(EAppMsgType::Ok,
 					FText::FromString(TEXT("Packages were installed but still cannot be imported. Check your Python environment.")),
 					FText::FromString(TEXT("Package Verification Failed")));
 				return FString();
@@ -360,7 +375,7 @@ FString FMjPythonHelper::BrowseForPython()
 	FString PythonPath = OutFiles[0];
 	if (!ValidatePythonBinary(PythonPath))
 	{
-		FMessageDialog::Open(EAppMsgType::Ok,
+		MjOpenDialog(EAppMsgType::Ok,
 			FText::FromString(FString::Printf(TEXT("'%s' is not a valid Python interpreter."), *PythonPath)),
 			FText::FromString(TEXT("Invalid Python")));
 		return FString();

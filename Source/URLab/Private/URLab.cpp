@@ -24,6 +24,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Misc/MessageDialog.h"
+#include "Misc/EngineVersionComparison.h"
 #include "Utils/URLabLogging.h"
 #include "Interfaces/IPluginManager.h"
 
@@ -119,7 +120,11 @@ void FURLabModule::StartupModule()
 			"Run third_party/build_all.ps1 (Windows) or build_all.sh (Linux/macOS) "
 			"from the plugin root, then rebuild the editor.\n\n"
 			"See the URLab log for the missing file name(s).");
+#if UE_VERSION_OLDER_THAN(5, 5, 0)
+		FMessageDialog::Open(EAppMsgType::Ok, Body, &Title);
+#else
 		FMessageDialog::Open(EAppMsgType::Ok, Body, Title);
+#endif
 	}
 
 	// Some CoACD dependencies like TBB or runtimes might be in CoACD/bin

@@ -41,6 +41,7 @@
 #include "Misc/Base64.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
+#include "Async/Async.h"
 #include "Internationalization/Regex.h"
 #include "HAL/FileManager.h"
 #include "EngineUtils.h"
@@ -1356,11 +1357,28 @@ void FURLabRpcDispatcher::ApplyStepCtrl(AAMjManager* Manager, const FMjStepReque
 		// Stage to actuator NetworkValue; AMjArticulation::ApplyControls
 		// copies it into d->ctrl every sub-step. Writing d->ctrl directly
 		// would be overwritten on the next sub-step.
+		static bool bCtrlDiagDone = false;
+		if (!bCtrlDiagDone)
+		{
+			bCtrlDiagDone = true;
+			UE_LOG(LogURLab, Warning, TEXT("ApplyStepCtrl ACTUATOR BYNAME MAP for '%s' (%d entries):"), *Art->GetName(), ByName.Num());
+			for (auto& NV : ByName)
+			{
+				int32 Mid = NV.Value ? NV.Value->GetMjID() : -1;
+				UE_LOG(LogURLab, Warning, TEXT("  name='%s' MjID=%d"), *NV.Key, Mid);
+			}
+			UE_LOG(LogURLab, Warning, TEXT("  incoming ctrl keys (%d):"), Pair.Value.Num());
+			for (const TPair<FString, float>& KV2 : Pair.Value)
+				UE_LOG(LogURLab, Warning, TEXT("    key='%s' val=%.4f found=%s"), *KV2.Key, KV2.Value, ByName.Contains(KV2.Key) ? TEXT("YES") : TEXT("NO"));
+		}
 		for (const TPair<FString, float>& KV : Pair.Value)
 		{
 			UMjActuator** Found = ByName.Find(KV.Key);
 			if (!Found || !*Found)
+			{
+				UE_LOG(LogURLab, Warning, TEXT("ApplyStepCtrl: FAILED to find actuator for key='%s'"), *KV.Key);
 				continue;
+			}
 			(*Found)->SetNetworkControl(KV.Value);
 		}
 	}
@@ -2656,6 +2674,12 @@ TSharedPtr<FJsonObject> FURLabRpcDispatcher::HandleSetQpos(const TSharedPtr<FJso
 	};
 	TArray<FJointSlot> Slots;
 	int32 ArtQDim = 0;
+	// Diagnostic: dump joint order once per articulation (first call only)
+	static TSet<FString> DiagDumped;
+	bool bDoDiag = !DiagDumped.Contains(Art->GetName());
+	if (bDoDiag) DiagDumped.Add(Art->GetName());
+	if (bDoDiag) UE_LOG(LogURLab, Warning, TEXT("set_qpos JOINT ORDER DUMP for '%s':"), *Art->GetName());
+	int32 SlotIdx = 0;
 	for (UMjJoint* J : Art->GetJoints())
 	{
 		if (!J)
@@ -2677,9 +2701,16 @@ TSharedPtr<FJsonObject> FURLabRpcDispatcher::HandleSetQpos(const TSharedPtr<FJso
 				Size = 1;
 				break;
 		}
+		if (bDoDiag)
+		{
+			UE_LOG(LogURLab, Warning, TEXT("  slot[%d] MjID=%d qposadr=%d size=%d name='%s'"),
+				SlotIdx, Id, m->jnt_qposadr[Id], Size, *J->GetMjName());
+		}
 		Slots.Add({m->jnt_qposadr[Id], Size, m->jnt_type[Id]});
 		ArtQDim += Size;
+		++SlotIdx;
 	}
+	if (bDoDiag) UE_LOG(LogURLab, Warning, TEXT("  total ArtQDim=%d"), ArtQDim);
 
 	if (Slots.Num() == 0)
 		return MakeError(TEXT("no_joints"),

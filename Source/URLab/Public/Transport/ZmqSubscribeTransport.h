@@ -66,6 +66,7 @@ private:
 	void* ControlSubscriber = nullptr;
 	void* InfoPublisher = nullptr;
 	bool bIsInitialized = false;
+	bool bSubscriptionsBuilt = false;
 
 	int InfoBroadcastCounter = 0;
 	int TotalStepCount = 0;
@@ -76,6 +77,7 @@ private:
 	int32 ControlLogCounter = 0;
 
 	void InitZmqSocket();
+	void BuildSubscriptions();
 	void ShutdownZmqSocket();
 	void BuildCache(struct mjModel_* m);
 	void BroadcastInfo(struct mjModel_* m);

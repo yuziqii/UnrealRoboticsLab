@@ -28,9 +28,33 @@
 #include "MuJoCo/Utils/MjXmlUtils.h"
 #include "MuJoCo/Utils/MjUtils.h"
 #include "EngineUtils.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "Chaos/TriangleMeshImplicitObject.h"
+#include "Misc/EngineVersionComparison.h"
 
 namespace
 {
+// UE5.1 -> UE5.7 compatibility: UBodySetup stored its cooked triangle meshes in
+// `ChaosTriMeshes` (TSharedPtr, accessed via .Get()) up to UE5.3. UE5.4 renamed
+// the array to `TriMeshGeometries` (Chaos FImplicitObjectPtr, accessed via
+// .GetReference()). These helpers abstract that so the plugin builds on both.
+int32 NumTriMeshes(const UBodySetup* BodySetup)
+{
+#if UE_VERSION_OLDER_THAN(5, 4, 0)
+	return BodySetup->ChaosTriMeshes.Num();
+#else
+	return BodySetup->TriMeshGeometries.Num();
+#endif
+}
+
+Chaos::FTriangleMeshImplicitObject* GetTriMesh(const UBodySetup* BodySetup, int32 Index)
+{
+#if UE_VERSION_OLDER_THAN(5, 4, 0)
+	return BodySetup->ChaosTriMeshes[Index].Get();
+#else
+	return BodySetup->TriMeshGeometries[Index].GetReference();
+#endif
+}
 UMjPhysicsEngine* ResolveEngine(const UObject* WorldCtx)
 {
 	if (AAMjManager* Manager = AAMjManager::GetManager())
@@ -61,8 +85,6 @@ UMjPhysicsEngine* ResolveEngine(const UObject* WorldCtx)
 #include "Utils/IO.h"
 #include "Utils/MeshUtils.h"
 #include "Misc/ScopedSlowTask.h"
-#include "Chaos/TriangleMeshImplicitObject.h"
-#include "PhysicsEngine/BodySetup.h"
 
 #if WITH_EDITOR
 #include "Engine/Blueprint.h"
@@ -842,7 +864,7 @@ void UMjGeom::DecomposeMesh()
 
 	UStaticMesh* LocalMesh = SMC->GetStaticMesh();
 	UBodySetup* BodySetup = LocalMesh->GetBodySetup();
-	if (!BodySetup || BodySetup->TriMeshGeometries.Num() == 0)
+	if (!BodySetup || NumTriMeshes(BodySetup) == 0)
 	{
 		UE_LOG(LogURLab, Warning, TEXT("[MjGeom] DecomposeMesh: '%s' has no collision geometry."), *GetName());
 		return;
@@ -864,15 +886,15 @@ void UMjGeom::DecomposeMesh()
 	FString FullFilePath = FPaths::ConvertRelativePathToFull(FilePath);
 
 	const int32 GeometryIndex = 0;
-	auto& TriGeom = BodySetup->TriMeshGeometries[GeometryIndex];
-	auto& Vertices = TriGeom.GetReference()->Particles().X();
+	Chaos::FTriangleMeshImplicitObject* TriMesh = GetTriMesh(BodySetup, GeometryIndex);
+	auto& Vertices = TriMesh->Particles().X();
 
 	int MeshCount = 0;
 	IO::DeleteMeshCache(FullFilePath, true);
 
-	if (TriGeom.GetReference()->Elements().RequiresLargeIndices())
+	if (TriMesh->Elements().RequiresLargeIndices())
 	{
-		const auto& Indices = TriGeom.GetReference()->Elements().GetLargeIndexBuffer();
+		const auto& Indices = TriMesh->Elements().GetLargeIndexBuffer();
 		MeshCount = MeshUtils::SaveMesh(FullFilePath, Vertices, Indices, true, CoACDThreshold);
 		{
 			FString Hash = IO::ComputeMeshHash(Vertices, Indices) + FString::Printf(TEXT("_complex_%.4f"), CoACDThreshold);
@@ -881,7 +903,7 @@ void UMjGeom::DecomposeMesh()
 	}
 	else
 	{
-		const auto& Indices = TriGeom.GetReference()->Elements().GetSmallIndexBuffer();
+		const auto& Indices = TriMesh->Elements().GetSmallIndexBuffer();
 		MeshCount = MeshUtils::SaveMesh(FullFilePath, Vertices, Indices, true, CoACDThreshold);
 		{
 			FString Hash = IO::ComputeMeshHash(Vertices, Indices) + FString::Printf(TEXT("_complex_%.4f"), CoACDThreshold);

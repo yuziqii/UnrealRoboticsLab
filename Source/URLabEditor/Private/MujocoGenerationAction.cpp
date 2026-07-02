@@ -26,6 +26,7 @@
 
 #include "MujocoGenerationAction.h"
 #include "URLabEditorLogging.h"
+#include "Misc/EngineVersionComparison.h"
 #include "MuJoCo/Components/Bodies/MjWorldBody.h"
 #include "MuJoCo/Core/MjArticulation.h"
 #include "MuJoCo/Utils/MjUtils.h"
@@ -45,7 +46,11 @@
 
 UMujocoGenerationAction::UMujocoGenerationAction()
 {
+#if !UE_VERSION_OLDER_THAN(5, 2, 0)
+	// SupportedClasses was added in UE5.2; on UE5.1 the action still appears
+	// in the Scripted Asset Actions menu and validates assets at invocation time.
 	SupportedClasses.Add(UBlueprint::StaticClass());
+#endif
 }
 
 void UMujocoGenerationAction::GenerateMuJoCoComponents()

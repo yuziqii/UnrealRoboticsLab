@@ -42,11 +42,61 @@
 #include "MuJoCo/Core/MjArticulation.h"
 #include "MuJoCo/Input/MjTwistController.h"
 #include "Styling/SlateTypes.h"
+#include "Brushes/SlateRoundedBoxBrush.h"
 #include "Fonts/SlateFontInfo.h"
 #include "MuJoCo/Utils/MjUtils.h"
 #include "Replay/MjReplayManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/CheckBox.h"
+#include "Misc/EngineVersionComparison.h"
+
+namespace
+{
+FButtonStyle MjGetButtonStyle(const UButton* Button)
+{
+#if UE_VERSION_OLDER_THAN(5, 2, 0)
+	return Button->WidgetStyle;
+#else
+	return Button->GetStyle();
+#endif
+}
+
+FTableRowStyle MjGetComboItemStyle(const UComboBoxString* Combo)
+{
+#if UE_VERSION_OLDER_THAN(5, 2, 0)
+	return Combo->ItemStyle;
+#else
+	return Combo->GetItemStyle();
+#endif
+}
+
+void MjSetComboItemStyle(UComboBoxString* Combo, const FTableRowStyle& Style)
+{
+#if UE_VERSION_OLDER_THAN(5, 2, 0)
+	Combo->ItemStyle = Style;
+#else
+	Combo->SetItemStyle(Style);
+#endif
+}
+
+FExpandableAreaStyle MjGetExpandableStyle(const UExpandableArea* Area)
+{
+#if UE_VERSION_OLDER_THAN(5, 2, 0)
+	return Area->Style;
+#else
+	return Area->GetStyle();
+#endif
+}
+
+void MjSetExpandableStyle(UExpandableArea* Area, const FExpandableAreaStyle& Style)
+{
+#if UE_VERSION_OLDER_THAN(5, 2, 0)
+	Area->Style = Style;
+#else
+	Area->SetStyle(Style);
+#endif
+}
+} // namespace
 
 void UMjSimulateWidget::NativeConstruct()
 {
@@ -55,7 +105,7 @@ void UMjSimulateWidget::NativeConstruct()
 	auto StyleButton = [](UButton* Btn, FLinearColor BGColor) {
 		if (!Btn)
 			return;
-		FButtonStyle Style = Btn->GetStyle();
+		FButtonStyle Style = MjGetButtonStyle(Btn);
 		Style.Normal.TintColor = FSlateColor(BGColor);
 		Style.Hovered.TintColor = FSlateColor(BGColor * 1.5f);
 		Style.Pressed.TintColor = FSlateColor(BGColor * 0.5f);
@@ -237,14 +287,14 @@ void UMjSimulateWidget::NativeConstruct()
 	if (ArticulationSelector)
 	{
 		ArticulationSelector->OnSelectionChanged.AddDynamic(this, &UMjSimulateWidget::OnArticulationSelected);
-		FTableRowStyle RowStyle = ArticulationSelector->GetItemStyle();
+		FTableRowStyle RowStyle = MjGetComboItemStyle(ArticulationSelector);
 		FSlateColor RowBG(FLinearColor(0.15f, 0.15f, 0.18f, 1.0f));
 		FSlateColor RowHover(FLinearColor(0.25f, 0.30f, 0.35f, 1.0f));
 		RowStyle.SetEvenRowBackgroundBrush(FSlateRoundedBoxBrush(RowBG, 0.0f));
 		RowStyle.SetOddRowBackgroundBrush(FSlateRoundedBoxBrush(RowBG, 0.0f));
 		RowStyle.SetEvenRowBackgroundHoveredBrush(FSlateRoundedBoxBrush(RowHover, 0.0f));
 		RowStyle.SetOddRowBackgroundHoveredBrush(FSlateRoundedBoxBrush(RowHover, 0.0f));
-		ArticulationSelector->SetItemStyle(RowStyle);
+MjSetComboItemStyle(ArticulationSelector, RowStyle);
 	}
 
 	// Attempt to find manager if not initialized
@@ -886,10 +936,10 @@ void UMjSimulateWidget::RefreshArticulationControls()
 		ExpArea->SetIsExpanded(true);
 
 		// Style the expandable area with a visible border
-		FExpandableAreaStyle AreaStyle = ExpArea->GetStyle();
+		FExpandableAreaStyle AreaStyle = MjGetExpandableStyle(ExpArea);
 		AreaStyle.CollapsedImage.TintColor = FSlateColor(FLinearColor(0.3f, 0.35f, 0.4f, 1.0f));
 		AreaStyle.ExpandedImage.TintColor = FSlateColor(FLinearColor(0.3f, 0.35f, 0.4f, 1.0f));
-		ExpArea->SetStyle(AreaStyle);
+MjSetExpandableStyle(ExpArea, AreaStyle);
 
 		UVerticalBoxSlot* BoxSlot = ParentList->AddChildToVerticalBox(ExpArea);
 		if (BoxSlot)
@@ -952,14 +1002,14 @@ void UMjSimulateWidget::RefreshArticulationControls()
 				IntegratorCombo->SetSelectedIndex((int)ManagerRef->PhysicsEngine->Options.Integrator);
 			IntegratorCombo->OnSelectionChanged.AddDynamic(this, &UMjSimulateWidget::OnIntegratorSelected);
 			{
-				FTableRowStyle RowStyle = IntegratorCombo->GetItemStyle();
+				FTableRowStyle RowStyle = MjGetComboItemStyle(IntegratorCombo);
 				FSlateColor RowBG(FLinearColor(0.15f, 0.15f, 0.18f, 1.0f));
 				FSlateColor RowHover(FLinearColor(0.25f, 0.30f, 0.35f, 1.0f));
 				RowStyle.SetEvenRowBackgroundBrush(FSlateRoundedBoxBrush(RowBG, 0.0f));
 				RowStyle.SetOddRowBackgroundBrush(FSlateRoundedBoxBrush(RowBG, 0.0f));
 				RowStyle.SetEvenRowBackgroundHoveredBrush(FSlateRoundedBoxBrush(RowHover, 0.0f));
 				RowStyle.SetOddRowBackgroundHoveredBrush(FSlateRoundedBoxBrush(RowHover, 0.0f));
-				IntegratorCombo->SetItemStyle(RowStyle);
+				MjSetComboItemStyle(IntegratorCombo, RowStyle);
 			}
 			PhysicsBox->AddChildToVerticalBox(IntegratorCombo);
 		}
@@ -1021,14 +1071,14 @@ void UMjSimulateWidget::RefreshArticulationControls()
 			KeyframeSelector->OnSelectionChanged.AddDynamic(this, &UMjSimulateWidget::OnKeyframeSelected);
 
 			// Style matching replay dropdown
-			FTableRowStyle RowStyle = KeyframeSelector->GetItemStyle();
+			FTableRowStyle RowStyle = MjGetComboItemStyle(KeyframeSelector);
 			FSlateColor RowBG(FLinearColor(0.15f, 0.15f, 0.18f, 1.0f));
 			FSlateColor RowHover(FLinearColor(0.25f, 0.30f, 0.35f, 1.0f));
 			RowStyle.SetEvenRowBackgroundBrush(FSlateRoundedBoxBrush(RowBG, 0.0f));
 			RowStyle.SetOddRowBackgroundBrush(FSlateRoundedBoxBrush(RowBG, 0.0f));
 			RowStyle.SetEvenRowBackgroundHoveredBrush(FSlateRoundedBoxBrush(RowHover, 0.0f));
 			RowStyle.SetOddRowBackgroundHoveredBrush(FSlateRoundedBoxBrush(RowHover, 0.0f));
-			KeyframeSelector->SetItemStyle(RowStyle);
+			MjSetComboItemStyle(KeyframeSelector, RowStyle);
 		}
 		RefreshKeyframeDropdown();
 		if (UVerticalBoxSlot* BoxSlot = KeyframeBox->AddChildToVerticalBox(KeyframeSelector))
@@ -1087,7 +1137,7 @@ void UMjSimulateWidget::RefreshArticulationControls()
 			ReplaySessionSelector->OnSelectionChanged.AddDynamic(this, &UMjSimulateWidget::OnReplaySessionSelected);
 
 			// Lighten the dropdown row backgrounds for readability
-			FTableRowStyle RowStyle = ReplaySessionSelector->GetItemStyle();
+			FTableRowStyle RowStyle = MjGetComboItemStyle(ReplaySessionSelector);
 			FSlateColor RowBG(FLinearColor(0.15f, 0.15f, 0.18f, 1.0f));
 			FSlateColor RowHover(FLinearColor(0.25f, 0.30f, 0.35f, 1.0f));
 			RowStyle.SetEvenRowBackgroundBrush(FSlateRoundedBoxBrush(RowBG, 0.0f));
@@ -1096,7 +1146,7 @@ void UMjSimulateWidget::RefreshArticulationControls()
 			RowStyle.SetOddRowBackgroundHoveredBrush(FSlateRoundedBoxBrush(RowHover, 0.0f));
 			RowStyle.SetTextColor(FSlateColor(FLinearColor::White));
 			RowStyle.SetSelectedTextColor(FSlateColor(FLinearColor::White));
-			ReplaySessionSelector->SetItemStyle(RowStyle);
+			MjSetComboItemStyle(ReplaySessionSelector, RowStyle);
 		}
 		ReplayBox->AddChildToVerticalBox(ReplaySessionSelector)->SetPadding(FMargin(0, 5, 0, 5));
 		RefreshReplaySessionDropdown();
@@ -1131,7 +1181,7 @@ void UMjSimulateWidget::RefreshArticulationControls()
 			BtnLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
 			LoadCSVButton->AddChild(BtnLabel);
 
-			FButtonStyle BtnStyle = LoadCSVButton->GetStyle();
+			FButtonStyle BtnStyle = MjGetButtonStyle(LoadCSVButton);
 			FLinearColor BtnColor(0.4f, 0.3f, 0.7f, 0.9f);
 			BtnStyle.Normal.TintColor = FSlateColor(BtnColor);
 			BtnStyle.Hovered.TintColor = FSlateColor(BtnColor * 1.2f);
@@ -1154,7 +1204,7 @@ void UMjSimulateWidget::RefreshArticulationControls()
 			SaveLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
 			SaveRecordingButton->AddChild(SaveLabel);
 
-			FButtonStyle SaveStyle = SaveRecordingButton->GetStyle();
+			FButtonStyle SaveStyle = MjGetButtonStyle(SaveRecordingButton);
 			FLinearColor SaveColor(0.2f, 0.5f, 0.3f, 0.9f);
 			SaveStyle.Normal.TintColor = FSlateColor(SaveColor);
 			SaveStyle.Hovered.TintColor = FSlateColor(SaveColor * 1.2f);

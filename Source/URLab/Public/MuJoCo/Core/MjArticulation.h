@@ -248,26 +248,41 @@ public:
 	// different name-source) — they stay hand-rolled. See deviation D-future.
 	// ============================================================================
 
-	/** Return all values from an id-keyed component map. */
+	/** Return all values from an id-keyed component map, sorted ascending by MuJoCo ID.
+	 *  TMap iterates in hash-bucket order which is NOT guaranteed to be key-sorted.
+	 *  Callers such as GetJoints() / GetActuators() assume MuJoCo-id order for
+	 *  qpos / ctrl array alignment, so we sort explicitly here. */
 	template <typename T>
 	TArray<T*> GetComponentsFromMap(const TMap<int, T*>& IdMap) const
 	{
+		TArray<TPair<int, T*>> Pairs;
+		Pairs.Reserve(IdMap.Num());
+		for (const auto& KV : IdMap)
+			Pairs.Add(KV);
+		Pairs.Sort([](const TPair<int, T*>& A, const TPair<int, T*>& B) { return A.Key < B.Key; });
+
 		TArray<T*> Out;
-		IdMap.GenerateValueArray(Out);
+		Out.Reserve(Pairs.Num());
+		for (const auto& P : Pairs)
+			Out.Add(P.Value);
 		return Out;
 	}
 
-	/** Return MuJoCo names of all components in an id-keyed map (skipping null values). */
+	/** Return MuJoCo names of all components in an id-keyed map, sorted ascending by MuJoCo ID. */
 	template <typename T>
 	TArray<FString> GetComponentNamesFromMap(const TMap<int, T*>& IdMap) const
 	{
+		TArray<TPair<int, T*>> Pairs;
+		Pairs.Reserve(IdMap.Num());
+		for (const auto& KV : IdMap)
+			if (KV.Value)
+				Pairs.Add(KV);
+		Pairs.Sort([](const TPair<int, T*>& A, const TPair<int, T*>& B) { return A.Key < B.Key; });
+
 		TArray<FString> Names;
-		Names.Reserve(IdMap.Num());
-		for (const auto& Pair : IdMap)
-		{
-			if (Pair.Value)
-				Names.Add(Pair.Value->GetMjName());
-		}
+		Names.Reserve(Pairs.Num());
+		for (const auto& P : Pairs)
+			Names.Add(P.Value->GetMjName());
 		return Names;
 	}
 

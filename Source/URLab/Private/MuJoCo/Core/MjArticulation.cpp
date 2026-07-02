@@ -37,6 +37,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SceneComponent.h"
+#include "Engine/LocalPlayer.h"
 #include "Containers/Queue.h"
 #include "MuJoCo/Components/Bodies/MjBody.h"
 #include "MuJoCo/Components/Bodies/MjFrame.h"
@@ -524,11 +525,15 @@ TArray<USceneComponent*> AMjArticulation::GetRuntimeComponentsOfClass(TSubclassO
 {
 	TArray<USceneComponent*> Result;
 	TArray<USceneComponent*> AllComponents;
-	GetComponents(ComponentClass, AllComponents);
+	GetComponents<USceneComponent>(AllComponents);
 
 	UWorld* MyWorld = GetWorld();
 	for (USceneComponent* Comp : AllComponents)
 	{
+		// Filter by the requested component class
+		if (ComponentClass && !Comp->IsA(ComponentClass))
+			continue;
+
 		// Skip SCS template components that leak into PIE
 		if (MyWorld && Comp->GetWorld() != MyWorld)
 			continue;
@@ -634,6 +639,32 @@ void AMjArticulation::PostSetup(mjModel* Model, mjData* Data)
 
 	UE_LOG(LogURLab, Log, TEXT("AMjArticulation::PostSetup - %s maps (using prefix '%s'): %d actuators, %d joints, %d sensors, %d bodies, %d tendons"),
 		*GetName(), *m_prefix, ActuatorIdMap.Num(), JointIdMap.Num(), SensorIdMap.Num(), BodyIdMap.Num(), TendonIdMap.Num());
+	// Diagnostic: dump joint ID map to log so we can verify ordering vs Python
+	{
+		UE_LOG(LogURLab, Warning, TEXT("PostSetup JOINT MAP for '%s' (%d joints):"), *GetName(), JointIdMap.Num());
+		TArray<int32> SortedKeys;
+		JointIdMap.GetKeys(SortedKeys);
+		SortedKeys.Sort();
+		for (int32 K : SortedKeys)
+		{
+			UMjJoint* J = JointIdMap[K];
+			if (J && m_model)
+			{
+				UE_LOG(LogURLab, Warning, TEXT("  JointID=%d qposadr=%d name='%s'"), K, m_model->jnt_qposadr[K < m_model->njnt ? K : 0], *J->GetMjName());
+			}
+			else if (J)
+				UE_LOG(LogURLab, Warning, TEXT("  JointID=%d name='%s' (no model yet)"), K, *J->GetMjName());
+		}
+		UE_LOG(LogURLab, Warning, TEXT("PostSetup ACTUATOR MAP for '%s' (%d actuators):"), *GetName(), ActuatorIdMap.Num());
+		TArray<int32> ActKeys;
+		ActuatorIdMap.GetKeys(ActKeys);
+		ActKeys.Sort();
+		for (int32 K : ActKeys)
+		{
+			UMjActuator* A = ActuatorIdMap[K];
+			if (A) UE_LOG(LogURLab, Warning, TEXT("  ActuatorID=%d name='%s'"), K, *A->GetMjName());
+		}
+	}
 
 	// Bind any articulation controller component (PD, passthrough, or user-custom)
 	// and cache it so ApplyControls (physics thread) doesn't have to iterate
@@ -705,6 +736,13 @@ void AMjArticulation::ApplyControls(bool bSkipController)
 	if (!bSkipController
 		&& CachedController && CachedController->bEnabled && CachedController->IsBound())
 	{
+		static bool bControllerWarnDone = false;
+		if (!bControllerWarnDone)
+		{
+			bControllerWarnDone = true;
+			UE_LOG(LogURLab, Warning, TEXT("ApplyControls: CachedController '%s' is INTERCEPTING ctrl (bSkipController=%d, bEnabled=%d). Python ctrl values are NOT applied directly!"),
+				*CachedController->GetClass()->GetName(), bSkipController ? 1 : 0, CachedController->bEnabled ? 1 : 0);
+		}
 		CachedController->ComputeAndApply(m_model, m_data, ControlSource);
 		return;
 	}

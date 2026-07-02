@@ -27,6 +27,11 @@
 #include "MuJoCo/Utils/MjUtils.h"
 #include "Utils/URLabLogging.h"
 
+// mjtBool was added in MuJoCo 3.9.0; older headers use mjtByte for boolean arrays.
+#if mjVERSION_HEADER < 3009000
+typedef mjtByte mjtBool;
+#endif
+
 // ==========================================
 // 1. The View Structs
 // ==========================================

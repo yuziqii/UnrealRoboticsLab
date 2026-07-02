@@ -114,7 +114,7 @@ synthy_bridge/RoboJuDo/
 synthy_bridge/logs/
 synthy_bridge/.venv/
 synthy_bridge/g1_test_trajectory.csv
-third_party/install/
+#third_party/install/
 # Each third_party/<dep>/src/ is a git submodule (see .gitmodules). The
 # submodule checkout itself is tracked via the submodule pointer; only the
 # per-build scratch directories inside each submodule are ignored.

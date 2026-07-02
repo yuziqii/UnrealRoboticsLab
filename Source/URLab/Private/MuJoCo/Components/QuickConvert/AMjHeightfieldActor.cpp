@@ -24,6 +24,7 @@
 #include "MuJoCo/Utils/MjUtils.h"
 
 #include "DrawDebugHelpers.h"
+#include "Misc/FileHelper.h"
 #include "MuJoCo/Components/QuickConvert/MjQuickConvertComponent.h"
 #include "MuJoCo/Core/MjArticulation.h"
 #include "Utils/URLabLogging.h"

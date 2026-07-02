@@ -27,6 +27,18 @@
 
 #include "CoreMinimal.h"
 #include "MjsCompilerOptions.generated.h"
+namespace MjsCompilerOptionsDetail
+{
+	// mjsCompiler.authored was added after MuJoCo 3.9.0. These overloads assign
+	// it when the destination struct has it and no-op otherwise.
+	template <typename T>
+	auto AssignAuthored(T& Dst, float Value, int) -> decltype((void)Dst.authored)
+	{
+		Dst.authored = static_cast<decltype(Dst.authored)>(Value);
+	}
+	template <typename T>
+	void AssignAuthored(T&, float, long) {}
+}
 
 // Mirror of MuJoCo's ``mjsCompiler`` (MJSCOMPILER_FIELDS). Codegen-owned —
 // hand-edits get clobbered on next regen. Add fields by editing
@@ -151,6 +163,7 @@ struct URLAB_API FMjsCompilerOptions
 			Dst.inertiagrouprange[I] = static_cast<decltype(Dst.inertiagrouprange[0])>(Inertiagrouprange[I]);
 		Dst.saveinertial = static_cast<decltype(Dst.saveinertial)>(Saveinertial);
 		Dst.alignfree = static_cast<decltype(Dst.alignfree)>(Alignfree);
-		Dst.authored = static_cast<decltype(Dst.authored)>(Authored);
+		// authored exists only on MuJoCo >= 3.10; assigned via SFINAE helper.
+		MjsCompilerOptionsDetail::AssignAuthored(Dst, Authored, 0);
 	}
 };

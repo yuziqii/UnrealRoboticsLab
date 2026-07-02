@@ -60,6 +60,17 @@
 #include "MuJoCo/Core/MjArticulation.h"
 #include "mujoco/mjspec.h"
 
+// UE5.1 compatibility: FAutomationTestBase::TestNearlyEqual was added in UE5.3.
+// On UE5.1/5.2 the identical functionality is provided via
+// TestEqual(What, Actual, Expected, Tolerance) overloads (float/double/FVector/
+// FRotator/FTransform), so alias the name there. Undefined at end of file to keep
+// the macro from leaking into other translation units under unity builds.
+#if UE_VERSION_OLDER_THAN(5, 3, 0)
+#ifndef TestNearlyEqual
+#define TestNearlyEqual TestEqual
+#endif
+#endif
+
 // =============================================================================
 // TIER 1 — Pure MuJoCo baseline tests (FMjTestSession)
 // Mirror MuJoCo's xml_native_reader_test.cc structure.

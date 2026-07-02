@@ -27,6 +27,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Components/InputComponent.h"
+#include "Engine/LocalPlayer.h"
 #include "Kismet/GameplayStatics.h"
 
 UMjInputMapping::UMjInputMapping()

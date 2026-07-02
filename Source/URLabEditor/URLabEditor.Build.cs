@@ -59,5 +59,15 @@ public class URLabEditor : ModuleRules
 			"Kismet",
 			"ToolMenus"
 		});
+
+		// UE5.1: AssetActionUtility.h (Blutility/Classes) includes the private
+		// header "BlutilityMenuExtensions.h" which lives in Blutility/Private.
+		// Later engine versions removed/relocated that include, so only on 5.1
+		// do we add the module's private include path explicitly for
+		// UMujocoGenerationAction (derived from UAssetActionUtility) to compile.
+		if (Target.Version.MajorVersion == 5 && Target.Version.MinorVersion < 2)
+		{
+			PrivateIncludePaths.Add(Path.Combine(EngineDirectory, "Source", "Editor", "Blutility", "Private"));
+		}
 	}
 }

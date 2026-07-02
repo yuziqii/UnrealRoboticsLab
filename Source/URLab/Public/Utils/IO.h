@@ -26,6 +26,7 @@
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/SecureHash.h"
+#include "Misc/FileHelper.h"
 #include <functional>
 namespace IO
 {

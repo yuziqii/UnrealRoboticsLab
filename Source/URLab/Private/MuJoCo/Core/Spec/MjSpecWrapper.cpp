@@ -33,6 +33,27 @@
 #include "Utils/MeshUtils.h"
 
 #include "Chaos/TriangleMeshImplicitObject.h"
+#include "Misc/EngineVersionComparison.h"
+
+namespace
+{
+int32 NumTriMeshes(const UBodySetup* BodySetup)
+{
+#if UE_VERSION_OLDER_THAN(5, 4, 0)
+	return BodySetup->ChaosTriMeshes.Num();
+#else
+	return BodySetup->TriMeshGeometries.Num();
+#endif
+}
+Chaos::FTriangleMeshImplicitObject* GetTriMesh(const UBodySetup* BodySetup, int32 Index)
+{
+#if UE_VERSION_OLDER_THAN(5, 4, 0)
+	return BodySetup->ChaosTriMeshes[Index].Get();
+#else
+	return BodySetup->TriMeshGeometries[Index].GetReference();
+#endif
+}
+} // namespace
 #include "MuJoCo/Components/Bodies/MjBody.h"
 
 FMujocoSpecWrapper::FMujocoSpecWrapper(mjSpec* InSpec, mjVFS* InVFS)
@@ -247,7 +268,7 @@ TArray<FString> FMujocoSpecWrapper::PrepareMeshForMuJoCo(UStaticMeshComponent* S
 
 	UStaticMesh* mesh = SMC->GetStaticMesh();
 	UBodySetup* BodySetup = mesh->GetBodySetup();
-	if (!BodySetup || BodySetup->TriMeshGeometries.Num() == 0)
+	if (!BodySetup || NumTriMeshes(BodySetup) == 0)
 		return ResultNames;
 
 	FString MeshType = bComplexMeshRequired ? "Complex" : "Simple";
@@ -305,19 +326,19 @@ TArray<FString> FMujocoSpecWrapper::PrepareMeshForMuJoCo(UStaticMeshComponent* S
 	}
 
 	const int32 GeometryIndex = 0;
-	auto& TriGeom = BodySetup->TriMeshGeometries[GeometryIndex];
-	auto& Vertices = TriGeom.GetReference()->Particles().X();
+	Chaos::FTriangleMeshImplicitObject* TriMesh = GetTriMesh(BodySetup, GeometryIndex);
+	auto& Vertices = TriMesh->Particles().X();
 
 	FString CurrentHash;
-	bool bLargeIndices = TriGeom.GetReference()->Elements().RequiresLargeIndices();
+	bool bLargeIndices = TriMesh->Elements().RequiresLargeIndices();
 	if (bLargeIndices)
 	{
-		const auto& Indices = TriGeom.GetReference()->Elements().GetLargeIndexBuffer();
+		const auto& Indices = TriMesh->Elements().GetLargeIndexBuffer();
 		CurrentHash = IO::ComputeMeshHash(Vertices, Indices);
 	}
 	else
 	{
-		const auto& Indices = TriGeom.GetReference()->Elements().GetSmallIndexBuffer();
+		const auto& Indices = TriMesh->Elements().GetSmallIndexBuffer();
 		CurrentHash = IO::ComputeMeshHash(Vertices, Indices);
 	}
 	CurrentHash += bComplexMeshRequired ? TEXT("_complex") : TEXT("_simple");
@@ -344,12 +365,12 @@ TArray<FString> FMujocoSpecWrapper::PrepareMeshForMuJoCo(UStaticMeshComponent* S
 
 		if (bLargeIndices)
 		{
-			const auto& Indices = TriGeom.GetReference()->Elements().GetLargeIndexBuffer();
+			const auto& Indices = TriMesh->Elements().GetLargeIndexBuffer();
 			MeshCount = MeshUtils::SaveMesh(FullFilePath, Vertices, Indices, bComplexMeshRequired, CoACDThreshold);
 		}
 		else
 		{
-			const auto& Indices = TriGeom.GetReference()->Elements().GetSmallIndexBuffer();
+			const auto& Indices = TriMesh->Elements().GetSmallIndexBuffer();
 			MeshCount = MeshUtils::SaveMesh(FullFilePath, Vertices, Indices, bComplexMeshRequired, CoACDThreshold);
 		}
 

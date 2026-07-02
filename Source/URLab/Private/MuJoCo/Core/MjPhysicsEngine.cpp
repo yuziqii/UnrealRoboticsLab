@@ -30,7 +30,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
+#include "Async/Async.h"
 #include "Async/Future.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "XmlFile.h"
 #include "Internationalization/Regex.h"
@@ -380,10 +382,23 @@ void UMjPhysicsEngine::ApplyThreadPool()
 	}
 	// mju_threadpool is the only public threadpool entry point; mju_numThread
 	// lives in MuJoCo's internal engine_thread.h, so don't depend on it here.
+#if mjVERSION_HEADER >= 3010000
 	mju_threadpool(m_data, N);
 	UE_LOG(LogURLab, Log,
 		TEXT("MuJoCo thread pool: %s (%d worker(s) requested)."),
 		N > 0 ? TEXT("enabled") : TEXT("disabled"), N);
+#else
+	if (N > 0)
+	{
+		UE_LOG(LogURLab, Warning,
+			TEXT("MuJoCo thread pool requested (%d worker(s)) but the per-step "
+				 "pool API requires MuJoCo >= 3.10; running single-threaded."), N);
+	}
+	else
+	{
+		UE_LOG(LogURLab, Log, TEXT("MuJoCo thread pool: disabled (single-threaded)."));
+	}
+#endif
 }
 
 void UMjPhysicsEngine::ApplyOptions()

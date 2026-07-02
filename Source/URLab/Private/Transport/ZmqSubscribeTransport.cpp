@@ -70,35 +70,10 @@ void UURLabZmqSubscribeTransport::InitZmqSocket()
 		}
 	}
 
-	AAMjManager* Manager = OwningManager.Get();
-	if (Manager)
-	{
-		for (AMjArticulation* Artic : Manager->GetAllArticulations())
-		{
-			if (Artic)
-			{
-				FString ControlFilter = FString::Printf(TEXT("%s/control "), *Artic->GetName());
-				{
-					const FTCHARToUTF8 FilterUtf8(*ControlFilter);
-					zmq_setsockopt(ControlSubscriber, ZMQ_SUBSCRIBE, FilterUtf8.Get(), FilterUtf8.Length());
-				}
-				UE_LOG(LogURLabNet, Log, TEXT("ZmqControlSubscriber Subscribed to: %s"), *ControlFilter);
-
-				FString GainsFilter = FString::Printf(TEXT("%s/set_gains "), *Artic->GetName());
-				{
-					const FTCHARToUTF8 FilterUtf8(*GainsFilter);
-					zmq_setsockopt(ControlSubscriber, ZMQ_SUBSCRIBE, FilterUtf8.Get(), FilterUtf8.Length());
-				}
-				UE_LOG(LogURLabNet, Log, TEXT("ZmqControlSubscriber Subscribed to: %s"), *GainsFilter);
-			}
-		}
-	}
-	else
-	{
-		UE_LOG(LogURLabNet, Warning, TEXT("ZmqControlSubscriber: Parent is not AAMuJoCoManager!"));
-		// Fallback generic subscribe if testing
-		zmq_setsockopt(ControlSubscriber, ZMQ_SUBSCRIBE, "control ", 8);
-	}
+	// NOTE: Subscription filters are registered lazily in BuildSubscriptions()
+	// (called from PreStep), NOT here. At InitZmqSocket() time the manager has
+	// not yet run Compile(), so GetAllArticulations() is empty and we would
+	// register zero filters — leaving the SUB socket dropping every message.
 
 	// Setup Publisher (Info)
 	InfoPublisher = zmq_socket(ZmqContext, ZMQ_PUB);
@@ -117,6 +92,48 @@ void UURLabZmqSubscribeTransport::InitZmqSocket()
 	UE_LOG(LogURLabNet, Log, TEXT("ZmqControlSubscriber Initialized."));
 }
 
+void UURLabZmqSubscribeTransport::BuildSubscriptions()
+{
+	if (bSubscriptionsBuilt || !ControlSubscriber)
+		return;
+
+	AAMjManager* Manager = OwningManager.Get();
+	if (!Manager)
+		return;
+
+	int32 SubscribedCount = 0;
+	for (AMjArticulation* Artic : Manager->GetAllArticulations())
+	{
+		if (!Artic)
+			continue;
+
+		FString ControlFilter = FString::Printf(TEXT("%s/control "), *Artic->GetName());
+		{
+			const FTCHARToUTF8 FilterUtf8(*ControlFilter);
+			zmq_setsockopt(ControlSubscriber, ZMQ_SUBSCRIBE, FilterUtf8.Get(), FilterUtf8.Length());
+		}
+		UE_LOG(LogURLabNet, Log, TEXT("ZmqControlSubscriber Subscribed to: %s"), *ControlFilter);
+
+		FString GainsFilter = FString::Printf(TEXT("%s/set_gains "), *Artic->GetName());
+		{
+			const FTCHARToUTF8 FilterUtf8(*GainsFilter);
+			zmq_setsockopt(ControlSubscriber, ZMQ_SUBSCRIBE, FilterUtf8.Get(), FilterUtf8.Length());
+		}
+		UE_LOG(LogURLabNet, Log, TEXT("ZmqControlSubscriber Subscribed to: %s"), *GainsFilter);
+
+		SubscribedCount++;
+	}
+
+	// Only latch once at least one articulation has been registered. Until then
+	// GetAllArticulations() may still be empty (manager mid-spawn) and we must
+	// retry on a later PreStep.
+	if (SubscribedCount > 0)
+	{
+		bSubscriptionsBuilt = true;
+		UE_LOG(LogURLabNet, Log, TEXT("ZmqControlSubscriber: Built subscriptions for %d articulation(s)."), SubscribedCount);
+	}
+}
+
 void UURLabZmqSubscribeTransport::ShutdownZmqSocket()
 {
 	if (!bIsInitialized)
@@ -130,6 +147,7 @@ void UURLabZmqSubscribeTransport::ShutdownZmqSocket()
 	InfoPublisher = nullptr;
 	ZmqContext = nullptr;
 	bIsInitialized = false;
+	bSubscriptionsBuilt = false;
 }
 
 void UURLabZmqSubscribeTransport::BuildCache(mjModel* m)
@@ -262,6 +280,13 @@ void UURLabZmqSubscribeTransport::PreStep(mjModel* m, mjData* d)
 		InitZmqSocket();
 		if (!bIsInitialized)
 			return;
+	}
+
+	// Register SUB filters now that the manager has compiled and articulations
+	// are registered. Runs every step until it succeeds, then latches.
+	if (!bSubscriptionsBuilt)
+	{
+		BuildSubscriptions();
 	}
 
 	if (!bCacheBuilt)
