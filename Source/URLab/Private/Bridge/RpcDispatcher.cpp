@@ -685,17 +685,17 @@ TSharedPtr<FJsonObject> FURLabRpcDispatcher::BuildHandshakePayload(AAMjManager* 
 
 	// MJB bytes: real msgpack bin under "mjb" for msgpack clients;
 	// legacy "mjb_base64" / "mjb_size" stays available for JSON clients.
-	if (m)
-	{
-		int Sz = mj_sizeModel(m);
-		TArray<uint8> Buf;
-		Buf.SetNum(Sz);
-		mj_saveModel(m, nullptr, Buf.GetData(), Sz);
-		FURLabMsgpackUtil::SetBinaryField(Reply, TEXT("mjb"), Buf.GetData(), Sz);
-		FString B64 = FBase64::Encode(Buf.GetData(), Sz);
-		Reply->SetStringField(TEXT("mjb_base64"), B64);
-		Reply->SetNumberField(TEXT("mjb_size"), Sz);
-	}
+	// if (m)
+	// {
+	// 	int Sz = mj_sizeModel(m);
+	// 	TArray<uint8> Buf;
+	// 	Buf.SetNum(Sz);
+	// 	mj_saveModel(m, nullptr, Buf.GetData(), Sz);
+	// 	FURLabMsgpackUtil::SetBinaryField(Reply, TEXT("mjb"), Buf.GetData(), Sz);
+	// 	FString B64 = FBase64::Encode(Buf.GetData(), Sz);
+	// 	Reply->SetStringField(TEXT("mjb_base64"), B64);
+	// 	Reply->SetNumberField(TEXT("mjb_size"), Sz);
+	// }
 
 	// Optional: ship the compiled MJCF + every VFS-registered asset so
 	// the client can reload the model offline (MJX, custom integrators,
