@@ -500,6 +500,11 @@ void AAMjManager::Tick(float DeltaTime)
 		return;
 	}
 
+	if (!bApplySimulationRenderState)
+	{
+		return;
+	}
+
 	const TArray<AMjArticulation*> Arts = PhysicsEngine->GetAllArticulations();
 	const TArray<UMjQuickConvertComponent*> Quicks = PhysicsEngine->GetAllQuickComponents();
 

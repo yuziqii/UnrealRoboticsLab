@@ -147,6 +147,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MuJoCo|UI")
 	bool bAutoCreateSimulateWidget = true;
 
+	/** If false, this manager stops applying simulation render snapshots to UE transforms.
+	 *  Use this when Sequencer, animation, or another runtime system should temporarily own visible poses. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Interp, Category = "MuJoCo|Runtime")
+	bool bApplySimulationRenderState = true;
+
+	UFUNCTION(BlueprintCallable, Category = "MuJoCo|Runtime")
+	void SetApplySimulationRenderState(bool bEnabled) { bApplySimulationRenderState = bEnabled; }
+
 	// --- Remote Stepping ---
 
 	/**
